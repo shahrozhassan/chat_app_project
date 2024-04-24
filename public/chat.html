@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/fontawesome.min.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css" />
+  <link rel="stylesheet" href="css/styles.css" />
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f8f9fa; /* Light grey */
+    }
+
+    .sidebar {
+      height: 100%;
+      width: 200px;
+      position: fixed;
+      top: 0;
+      left: 0;
+      background-color: #343a40; /* Dark grey */
+      padding-top: 20px;
+    }
+
+    .sidebar a {
+      padding: 10px 15px;
+      text-decoration: none;
+      font-size: 18px;
+      color: white;
+      display: block;
+    }
+
+    .sidebar a:hover {
+      background-color: #454d55; /* Darker grey */
+    }
+
+    .main-content {
+      margin-left: 200px;
+      padding: 20px;
+    }
+
+    .chat-container {
+      background-color: #ffffff; /* White */
+      border: 1px solid #dee2e6; /* Grey */
+      border-radius: 10px;
+      padding: 20px;
+    }
+
+    .chat-box {
+      list-style-type: none;
+      padding: 0;
+      margin: 0;
+      max-height: 500px;
+      overflow-y: auto;
+    }
+
+    .chat-message {
+      margin-bottom: 10px;
+      padding: 10px;
+      background-color: #f8f9fa; /* Light grey */
+      border-radius: 10px;
+    }
+
+    .form-group {
+      margin-bottom: 0;
+    }
+
+    .input-group {
+      margin-bottom: 10px;
+    }
+
+    #messageInput {
+      border-radius: 10px;
+    }
+
+    #pvChatMessage {
+      border-radius: 10px;
+    }
+
+    #pvMessageInput {
+      border-radius: 10px;
+    }
+
+    /* Styling for online users list */
+    .online-users {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    .online-user {
+      padding: 10px;
+      margin-bottom: 5px;
+      background-color: #495057; /* Dark grey */
+      border-radius: 5px;
+      color: white;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+
+    .online-user:hover {
+      background-color: #6c757d; /* Grey */
+    }
+  </style>
+  <title>Chat Application</title>
+</head>
+
+<body>
+  <div class="sidebar">
+    <h3 style="color: white; text-align: center;">Online Users</h3>
+    <ul id="online-users-list" class="online-users"></ul>
+  </div>
+  <div class="main-content">
+    <div class="bg-primary p-1 w-100 border border-info" style="border-radius: 1em">
+      <ul id="online-users-list" class="list-group list-group-horizontal list-unstyled overflow-auto"></ul>
+    </div>
+    <div class="row">
+      <div id="chatContainer" class="col-12" style="height: 90%; overflow-y: scroll">
+        <ul id="chat-box" class="mt-2 list-unstyled chat-container"></ul>
+        <div id="feedback"></div>
+        <div class="d-flex justify-content-center fixed-bottom">
+          <form id="chatForm" class="form-group w-50 mb-0">
+            <div class="input-group">
+              <input type="text" name="message" id="messageInput" class="form-control" placeholder="Message text..." />
+              <div class="input-group-prepend">
+                <button type="submit" class="form-control btn btn-primary">Send Message</button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="modal fade" id="pvChat" tabindex="-1" aria-labelledby="pvChatModal" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="modalTitle"></h5>
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <div class="modal-body">
+          <span class="alert alert-success p-2" id="pvChatMessage"></span>
+        </div>
+        <div class="modal-body">
+          <form id="pvChatForm">
+            <div class="form-group">
+              <label for="message-text" class="col-form-label">Message:</label>
+              <textarea class="form-control" id="pvMessageInput"></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary">Send Message</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.3.2/socket.io.min.js"></script>
+  <script src="js/chat.js"></script>
+  <script>
+    document.addEventListener("DOMContentLoaded", function() {
+      var socket = io();
+
+      var onlineUsersList = document.getElementById("online-users-list");
+      var chatMessages = document.getElementById("chat-box");
+
+      // Function to update the list of online users
+      function updateOnlineUsers(users) {
+        onlineUsersList.innerHTML = ""; // Clear the existing list
+        users.forEach(function(user) {
+          var listItem = document.createElement("li");
+          listItem.textContent = user;
+          listItem.classList.add("online-user");
+          onlineUsersList.appendChild(listItem);
+        });
+      }
+
+      // Function to add a new message to the chat box
+      function addMessageToChat(message) {
+        var messageElement = document.createElement("li");
+        messageElement.classList.add("chat-message");
+        messageElement.textContent = message;
+        chatMessages.appendChild(messageElement);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+      }
+
+      // Function to get current time in AM/PM format
+      function getCurrentTime() {
+        var now = new Date();
+        var hours = now.getHours();
+        var minutes = now.getMinutes();
+        var ampm = hours >= 12 ? 'PM' : 'AM';
+        hours = hours % 12;
+        hours = hours ? hours : 12; // Handle midnight (0 hours)
+        minutes = minutes < 10 ? '0' + minutes : minutes;
+        return hours + ':' + minutes + ' ' + ampm;
+      }
+
+      socket.on("connect", function() {
+        console.log("Connected to server");
+
+        // Event listener for receiving online users list from server
+        socket.on("onlineUsers", function(users) {
+          updateOnlineUsers(users);
+        });
+
+        // Event listener for receiving new messages from server
+        socket.on("chatMessage", function(data) {
+          var time = getCurrentTime();
+          var message = "[" + time + "] " + data.username + ": " + data.message;
+          addMessageToChat(message);
+        });
+      });
+
+      // Add event listener for clicking on an online user
+      onlineUsersList.addEventListener("click", function(event) {
+        if (event.target && event.target.nodeName === "LI") {
+          var username = event.target.textContent;
+          console.log("Clicked on user:", username);
+          // Add functionality to open a private chat with the clicked user
+          // For example: socket.emit("privateChatRequest", username);
+        }
+      });
+    });
+  </script>
+</body>
+
+</html>
